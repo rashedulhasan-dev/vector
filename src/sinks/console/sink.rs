@@ -1,3 +1,6 @@
+// TODO: no unit test that actually exercises the sink to apply `assert_sink_compliance` to.. but we could easily write
+// one since `WriterSink<T>` simply takes `T: AsyncWrite`
+
 use async_trait::async_trait;
 use futures::{stream::BoxStream, StreamExt};
 use tokio::{io, io::AsyncWriteExt};
@@ -62,6 +65,7 @@ fn encode_event(event: Event, encoding: &EncodingConfig<StandardEncodings>) -> O
 mod test {
     use chrono::{offset::TimeZone, Utc};
     use pretty_assertions::assert_eq;
+    use vector_core::sink::VectorSink;
 
     use super::*;
     use crate::{
@@ -70,7 +74,26 @@ mod test {
             Event, Value,
         },
         sinks::util::encoding::StandardEncodings,
+        test_util::components::{assert_sink_compliance_with_event, SINK_TAGS},
     };
+
+    #[tokio::test]
+    async fn component_spec_compliance() {
+        let event = Event::from("foo");
+
+        let sink = WriterSink {
+            acker: Acker::passthrough(),
+            output: Vec::new(),
+            encoding: EncodingConfig::from(StandardEncodings::Json),
+        };
+
+        assert_sink_compliance_with_event(
+            VectorSink::from_event_streamsink(sink),
+            event,
+            &SINK_TAGS,
+        )
+        .await;
+    }
 
     #[test]
     fn encodes_raw_logs() {
